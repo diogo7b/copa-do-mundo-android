@@ -2,7 +2,10 @@ package me.dio.copa.catar.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-val Purple200 = Color(0xFFBB86FC)
-val Purple500 = Color(0xFF6200EE)
-val Purple700 = Color(0xFF3700B3)
-val Teal200 = Color(0xFF03DAC5)
+val Gray200 = Color(0xFFFAFAFA)
+val Gray500 = Color(0xFFE6E6E6)
+val AccentColor = Color(0xFF06141B)
+
+val ExtraColor1 = Color(0xFF4A5C6A)
+val ExtraColor2 = Color(0xFF253745)
+val ExtraColor3 = Color(0xFF11212D)

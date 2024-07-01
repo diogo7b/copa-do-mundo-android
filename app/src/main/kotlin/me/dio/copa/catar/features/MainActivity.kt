@@ -5,10 +5,9 @@ import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -16,9 +15,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Card
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
@@ -26,30 +24,36 @@ import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import dagger.hilt.android.AndroidEntryPoint
 import me.dio.copa.catar.R
+import me.dio.copa.catar.domain.extensions.getDate
+import me.dio.copa.catar.domain.model.MatchDomain
+import me.dio.copa.catar.extensions.observe
+import me.dio.copa.catar.notification.scheduler.extensions.NotificationMatcheWorker
 import me.dio.copa.catar.ui.theme.Copa2022Theme
 import me.dio.copa.catar.ui.theme.Shapes
+import me.dio.copa.catar.view_model.MainViewModel
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
+    private val viewModel: MainViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+
         super.onCreate(savedInstanceState)
+        observerAction()
         setContent {
             Copa2022Theme {
+                val state = viewModel.state.collectAsState()
+                val matches = state.value.matches
 
-                val state by viewModel.state.collectAsState()
-                Log.d("State result", state.toString())
                 // A surface container using the 'background' color from the theme
                 Scaffold(
                     topBar = {
@@ -74,9 +78,11 @@ class MainActivity : ComponentActivity() {
 
 
                         ) {
-                        items(100) {
-                            val contador = it + 1
-                            CardGames(contador)
+                        items(matches) { match ->
+                            CardGames(match) {
+                                viewModel.changeNotificationSetting(it)
+                            }
+                            Log.d("matche", "id notification? ${match}")
                         }
                     }
                 }
@@ -84,17 +90,36 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun observerAction() {
+        viewModel.action.observe(this) { action ->
+            when (action) {
+                is MainViewModel.MainUiAction.DisableNotification ->
+                    NotificationMatcheWorker.stop(applicationContext, action.match)
+
+                is MainViewModel.MainUiAction.EnableNotification ->
+                    NotificationMatcheWorker.start(applicationContext, action.match)
+
+                is MainViewModel.MainUiAction.MatchesNotFound -> TODO()
+                MainViewModel.MainUiAction.Unexpected -> TODO()
+            }
+
+        }
+    }
+
 }
 
 
 @Composable
-fun CardGames(number: Int) {
+fun CardGames(match: MatchDomain, onCLick: NotificationOnclick) {
     Card(
         backgroundColor = MaterialTheme.colors.primaryVariant,
         contentColor = MaterialTheme.colors.secondary,
         shape = Shapes.medium,
         modifier = Modifier.padding(4.dp)
     ) {
+
+        NotificationMatche(match, onCLick)
+
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
@@ -104,24 +129,20 @@ fun CardGames(number: Int) {
 
 
         ) {
+
             Column(
                 modifier = Modifier.padding(8.dp)
             ) {
-                Image(
-                    painter = painterResource(id = R.drawable.escudo_cbf),
-                    contentDescription = "Escudo da seleção anfitriã",
+                Text(
+                    text = match.team1.flag,
                     modifier = Modifier
-                        .size(48.dp)
-                        .border(BorderStroke(1.dp, MaterialTheme.colors.secondary))
-                        .clip(CircleShape),
-                    contentScale = ContentScale.Fit
-
+                        .align(Alignment.CenterHorizontally),
+                    style = MaterialTheme.typography.h3
                 )
                 Text(
-                    text = "BRA",
+                    text = match.team1.displayName,
                     modifier = Modifier.padding(top = 8.dp),
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    style = MaterialTheme.typography.h6
 
                 )
             }
@@ -130,68 +151,58 @@ fun CardGames(number: Int) {
             ) {
                 Text(
                     text = "VS",
-                    fontSize = 50.sp,
+                    fontSize = 26.sp,
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "00:00",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Normal
-                )
-                Text(
-                    text = "Arena Pernambuco",
-                    fontSize = 16.sp,
+                    text = match.date.getDate(),
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.Normal
                 )
             }
             Column {
-                Image(
-                    painter = painterResource(id = R.drawable.escudo_din),
-                    contentDescription = "Escudo da seleção visitante",
-                    modifier = Modifier.size(54.dp),
-                    contentScale = ContentScale.Fit
-
+                Text(
+                    text = match.team2.flag,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally),
+                    style = MaterialTheme.typography.h3
                 )
                 Text(
-                    text = "DIN",
-                    modifier = Modifier.padding(top = 16.dp),
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold
+                    text = match.team2.displayName,
+                    modifier = Modifier.padding(top = 8.dp),
+                    style = MaterialTheme.typography.h6
+
 
                 )
+
             }
 
         }
-        /* Row(
-             verticalAlignment = Alignment.Bottom,
-             horizontalArrangement = Arrangement.Start
-         ) {
-             Text(
-                 text = "Fase de Grupos $number",
-                 modifier = Modifier.padding(16.dp),
-                 color = MaterialTheme.colors.secondary,
-                 fontSize = 8.sp
-
-             )
-         }*/
 
     }
 }
 
 @Composable
-fun Greeting(name: String) {
-    Text(text = "Hello $name!")
+fun NotificationMatche(match: MatchDomain, onCLick: NotificationOnclick) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.End
+
+    ) {
+        val notificationSign = if (match.notificationEnabled) R.drawable.ic_notifications_active
+        else R.drawable.ic_notifications
+
+        Image(
+            painter = painterResource(id = notificationSign),
+            modifier = Modifier.clickable {
+                onCLick(match)
+            },
+            contentDescription = ""
+        )
+    }
 }
 
-@Composable
-@Preview(showBackground = true)
-fun DefaultPreview() {
-    CardGames(1)
-}
-/*@Composable
-@Preview(showBackground = true)
-fun DefaultPreview() {
-    Copa2022Theme {
-        Greeting("Android")
-    }
-}*/
+typealias NotificationOnclick = (match: MatchDomain) -> Unit
+
